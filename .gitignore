@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local logs and caches
+*.log
+.pytest_cache/
+.mypy_cache/
+
+# Local secrets
+.env
+.pdfpages2md_config.json
+
+# Generated/large PDF inputs are not source files
+*.pdf
+backend/tests/sample_520.pdf
+
+# Generated page-render examples are not source files
+examples/*.png

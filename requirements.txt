@@ -1,0 +1,9 @@
+pymupdf>=1.24
+pymupdf4llm>=0.0.23
+
+# Optional OCR backends (install one):
+#   pytesseract>=0.3.10        # requires the Tesseract binary on PATH
+#   rapidocr-onnxruntime>=1.3  # self-contained ONNX runtime OCR
+
+# Translation uses DeepSeek only and needs no extra Python package.
+# Set DEEPSEEK_API_KEY in the environment, `.env`, or the web UI.

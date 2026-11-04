@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pdfpages2md</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path d="M6 2h8l4 4v16H6z"></path>
+            <path d="M14 2v5h5M9 13h6M9 17h6"></path>
+          </svg>
+        </span>
+        <span>pdfpages2md</span>
+      </div>
+      <div class="service-state" id="serviceState">连接中</div>
+    </header>
+
+    <main class="workspace">
+      <section class="control-panel" aria-label="转换参数">
+        <div class="dropzone" id="dropzone" tabindex="0" role="button"
+             aria-label="选择或拖入 PDF"
+             data-tip="支持 PDF 文件。点击选择，或把文件拖到此处。">
+          <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
+          <svg class="drop-icon" viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
+            <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"></path>
+            <path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"></path>
+          </svg>
+          <div class="drop-title">选择或拖入 PDF</div>
+          <div class="drop-file" id="fileName">未选择文件</div>
+        </div>
+
+        <div class="section-label">输出设置</div>
+        <div class="field-grid">
+          <div class="field range-field span-2" data-tip="每一部分填写起始页和终止页；只填起始页表示单页。例如 1-10 和 50。">
+            <span>页码范围</span>
+            <div class="range-list" id="rangeList"></div>
+            <div class="range-footer">
+              <button class="add-range-button" id="addRangeButton" type="button"
+                      data-tip="添加一个新的页码范围">
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14"></path>
+                </svg>
+                <span>添加范围</span>
+              </button>
+              <span class="range-preview" id="rangePreview">请填写页码</span>
+            </div>
+          </div>
+          <label class="field" data-tip="导出为 Markdown、纯文本或 JSON。">
+            <span>输出格式</span>
+            <select id="format">
+              <option value="markdown">Markdown</option>
+              <option value="text">纯文本</option>
+              <option value="json">JSON</option>
+            </select>
+          </label>
+          <label class="field" data-tip="HTML 注释不会显示在预览中；标题会显示为章节标题。">
+            <span>页码标记</span>
+            <select id="marker">
+              <option value="comment">HTML 注释</option>
+              <option value="heading">标题</option>
+              <option value="both">两者</option>
+              <option value="none">不显示</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="section-label">处理选项</div>
+        <div class="option-row">
+          <label class="switch" data-tip="扫描页没有文字层时自动 OCR；关闭后扫描页可能无法提取文字。">
+            <input id="ocr" type="checkbox" checked>
+            <span class="switch-track" aria-hidden="true"></span>
+            <span>扫描页 OCR</span>
+          </label>
+          <label class="field compact" data-tip="RapidOCR/Tesseract 语言代码：英文 eng，简体中文 chi_sim。">
+            <span>OCR 语言</span>
+            <input id="ocrLang" type="text" value="eng" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+
+        <div class="option-row">
+          <label class="switch" data-tip="把提取到的英文翻译成简体中文，保留标题、列表和代码块结构。">
+            <input id="translate" type="checkbox">
+            <span class="switch-track" aria-hidden="true"></span>
+            <span>英译中</span>
+          </label>
+          <label class="field compact key" data-tip="用于英译中的 DeepSeek API Key；填写后会自动保存到本机后端。">
+            <span>DeepSeek Key</span>
+            <input id="deepseekApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-...">
+          </label>
+        </div>
+
+        <div class="option-row">
+          <label class="switch" data-tip="仅对代码、表格或 OCR 质量较差的页面调用视觉模型校正版面；普通正文仍走 RapidOCR + DeepSeek。">
+            <input id="vision" type="checkbox" checked>
+            <span class="switch-track" aria-hidden="true"></span>
+            <span>视觉校正</span>
+          </label>
+          <label class="field compact key" data-tip="用于视觉校正的智谱 GLM API Key；填写后会自动保存到本机后端。">
+            <span>GLM Key</span>
+            <input id="glmApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="视觉模型密钥">
+          </label>
+        </div>
+
+        <div class="config-status" id="configStatus">密钥会自动保存到本机</div>
+
+        <details class="advanced">
+          <summary>高级选项</summary>
+          <div class="field-grid">
+            <label class="field" data-tip="页面非空白字符少于该值时，按扫描页处理。">
+              <span>扫描判定字符数</span>
+              <input id="minChars" type="number" value="50" min="0">
+            </label>
+            <label class="field" data-tip="OCR 渲染分辨率；越高越清晰，但速度更慢、占用更高。">
+              <span>OCR 渲染 DPI</span>
+              <input id="dpi" type="number" value="200" min="72" max="600">
+            </label>
+          </div>
+        </details>
+
+        <button class="convert-button" id="convertButton" type="button"
+                data-tip="开始提取所选页面，并按勾选项翻译或校正，完成后自动下载结果。">
+          <span class="button-spinner" id="buttonSpinner" aria-hidden="true"></span>
+          <span id="buttonText">开始转换</span>
+        </button>
+      </section>
+
+      <section class="output-panel" aria-label="转换结果">
+        <div class="output-header">
+          <div class="result-meta" id="resultMeta">等待转换</div>
+          <div class="output-actions">
+            <button class="text-button" id="downloadButton" type="button" disabled>下载文件</button>
+          </div>
+        </div>
+        <div class="result-body" id="resultBody">
+          <div class="result-state" id="resultState">选择 PDF 后开始转换。</div>
+          <div class="result-detail" id="resultDetail"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

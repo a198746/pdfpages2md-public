@@ -1,0 +1,118 @@
+{
+  "source": "tests/sample_520.pdf",
+  "total_pages": 520,
+  "selected_pages": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110
+  ],
+  "pages": [
+    {
+      "page": 100,
+      "markdown": "# **Section 100 Report**\n\nThis is page 100 of the constructed sample document.\n\nIt is intended to verify that only the requested pages are read,\n\nthat original page numbers are preserved in the output Markdown,\n\nand that extraction stays fast and memory-proportional for large PDFs.\n\n\nThe quick brown fox jumps over the lazy dog.\n\nAlpha bravo charlie delta echo foxtrot golf hotel.",
+      "text": "Section 100 Report\nThis is page 100 of the constructed sample document.\nIt is intended to verify that only the requested pages are read,\nthat original page numbers are preserved in the output Markdown,\nand that extraction stays fast and memory-proportional for large PDFs.\nThe quick brown fox jumps over the lazy dog.\nAlpha bravo charlie delta echo foxtrot golf hotel.\n",
+      "scanned": false,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": null
+    },
+    {
+      "page": 101,
+      "markdown": "# **Section 101 Report**\n\nThis is page 101 of the constructed sample document.\n\nIt is intended to verify that only the requested pages are read,\n\nthat original page numbers are preserved in the output Markdown,\n\nand that extraction stays fast and memory-proportional for large PDFs.\n\n\nThe quick brown fox jumps over the lazy dog.\n\nAlpha bravo charlie delta echo foxtrot golf hotel.",
+      "text": "Section 101 Report\nThis is page 101 of the constructed sample document.\nIt is intended to verify that only the requested pages are read,\nthat original page numbers are preserved in the output Markdown,\nand that extraction stays fast and memory-proportional for large PDFs.\nThe quick brown fox jumps over the lazy dog.\nAlpha bravo charlie delta echo foxtrot golf hotel.\n",
+      "scanned": false,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": null
+    },
+    {
+      "page": 102,
+      "markdown": "# **Section 102 Report**\n\nThis is page 102 of the constructed sample document.\n\nIt is intended to verify that only the requested pages are read,\n\nthat original page numbers are preserved in the output Markdown,\n\nand that extraction stays fast and memory-proportional for large PDFs.\n\n\nThe quick brown fox jumps over the lazy dog.\n\nAlpha bravo charlie delta echo foxtrot golf hotel.",
+      "text": "Section 102 Report\nThis is page 102 of the constructed sample document.\nIt is intended to verify that only the requested pages are read,\nthat original page numbers are preserved in the output Markdown,\nand that extraction stays fast and memory-proportional for large PDFs.\nThe quick brown fox jumps over the lazy dog.\nAlpha bravo charlie delta echo foxtrot golf hotel.\n",
+      "scanned": false,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": null
+    },
+    {
+      "page": 103,
+      "markdown": "# **Section 103 Report**\n\nThis is page 103 of the constructed sample document.\n\nIt is intended to verify that only the requested pages are read,\n\nthat original page numbers are preserved in the output Markdown,\n\nand that extraction stays fast and memory-proportional for large PDFs.\n\n\nThe quick brown fox jumps over the lazy dog.\n\nAlpha bravo charlie delta echo foxtrot golf hotel.",
+      "text": "Section 103 Report\nThis is page 103 of the constructed sample document.\nIt is intended to verify that only the requested pages are read,\nthat original page numbers are preserved in the output Markdown,\nand that extraction stays fast and memory-proportional for large PDFs.\nThe quick brown fox jumps over the lazy dog.\nAlpha bravo charlie delta echo foxtrot golf hotel.\n",
+      "scanned": false,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": null
+    },
+    {
+      "page": 104,
+      "markdown": "# **Section 104 Report**\n\nThis is page 104 of the constructed sample document.\n\nIt is intended to verify that only the requested pages are read,\n\nthat original page numbers are preserved in the output Markdown,\n\nand that extraction stays fast and memory-proportional for large PDFs.\n\n\nThe quick brown fox jumps over the lazy dog.\n\nAlpha bravo charlie delta echo foxtrot golf hotel.",
+      "text": "Section 104 Report\nThis is page 104 of the constructed sample document.\nIt is intended to verify that only the requested pages are read,\nthat original page numbers are preserved in the output Markdown,\nand that extraction stays fast and memory-proportional for large PDFs.\nThe quick brown fox jumps over the lazy dog.\nAlpha bravo charlie delta echo foxtrot golf hotel.\n",
+      "scanned": false,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": null
+    },
+    {
+      "page": 105,
+      "markdown": "",
+      "text": "",
+      "scanned": true,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": "page appears scanned (no text layer); pass --ocr to enable OCR"
+    },
+    {
+      "page": 106,
+      "markdown": "# **Section 106 Report**\n\nThis is page 106 of the constructed sample document.\n\nIt is intended to verify that only the requested pages are read,\n\nthat original page numbers are preserved in the output Markdown,\n\nand that extraction stays fast and memory-proportional for large PDFs.\n\n\nThe quick brown fox jumps over the lazy dog.\n\nAlpha bravo charlie delta echo foxtrot golf hotel.",
+      "text": "Section 106 Report\nThis is page 106 of the constructed sample document.\nIt is intended to verify that only the requested pages are read,\nthat original page numbers are preserved in the output Markdown,\nand that extraction stays fast and memory-proportional for large PDFs.\nThe quick brown fox jumps over the lazy dog.\nAlpha bravo charlie delta echo foxtrot golf hotel.\n",
+      "scanned": false,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": null
+    },
+    {
+      "page": 107,
+      "markdown": "# **Section 107 Report**\n\nThis is page 107 of the constructed sample document.\n\nIt is intended to verify that only the requested pages are read,\n\nthat original page numbers are preserved in the output Markdown,\n\nand that extraction stays fast and memory-proportional for large PDFs.\n\n\nThe quick brown fox jumps over the lazy dog.\n\nAlpha bravo charlie delta echo foxtrot golf hotel.",
+      "text": "Section 107 Report\nThis is page 107 of the constructed sample document.\nIt is intended to verify that only the requested pages are read,\nthat original page numbers are preserved in the output Markdown,\nand that extraction stays fast and memory-proportional for large PDFs.\nThe quick brown fox jumps over the lazy dog.\nAlpha bravo charlie delta echo foxtrot golf hotel.\n",
+      "scanned": false,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": null
+    },
+    {
+      "page": 108,
+      "markdown": "# **Section 108 Report**\n\nThis is page 108 of the constructed sample document.\n\nIt is intended to verify that only the requested pages are read,\n\nthat original page numbers are preserved in the output Markdown,\n\nand that extraction stays fast and memory-proportional for large PDFs.\n\n\nThe quick brown fox jumps over the lazy dog.\n\nAlpha bravo charlie delta echo foxtrot golf hotel.",
+      "text": "Section 108 Report\nThis is page 108 of the constructed sample document.\nIt is intended to verify that only the requested pages are read,\nthat original page numbers are preserved in the output Markdown,\nand that extraction stays fast and memory-proportional for large PDFs.\nThe quick brown fox jumps over the lazy dog.\nAlpha bravo charlie delta echo foxtrot golf hotel.\n",
+      "scanned": false,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": null
+    },
+    {
+      "page": 109,
+      "markdown": "# **Section 109 Report**\n\nThis is page 109 of the constructed sample document.\n\nIt is intended to verify that only the requested pages are read,\n\nthat original page numbers are preserved in the output Markdown,\n\nand that extraction stays fast and memory-proportional for large PDFs.\n\n\nThe quick brown fox jumps over the lazy dog.\n\nAlpha bravo charlie delta echo foxtrot golf hotel.",
+      "text": "Section 109 Report\nThis is page 109 of the constructed sample document.\nIt is intended to verify that only the requested pages are read,\nthat original page numbers are preserved in the output Markdown,\nand that extraction stays fast and memory-proportional for large PDFs.\nThe quick brown fox jumps over the lazy dog.\nAlpha bravo charlie delta echo foxtrot golf hotel.\n",
+      "scanned": false,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": null
+    },
+    {
+      "page": 110,
+      "markdown": "# **Section 110 Report**\n\nThis is page 110 of the constructed sample document.\n\nIt is intended to verify that only the requested pages are read,\n\nthat original page numbers are preserved in the output Markdown,\n\nand that extraction stays fast and memory-proportional for large PDFs.\n\n\nThe quick brown fox jumps over the lazy dog.\n\nAlpha bravo charlie delta echo foxtrot golf hotel.",
+      "text": "Section 110 Report\nThis is page 110 of the constructed sample document.\nIt is intended to verify that only the requested pages are read,\nthat original page numbers are preserved in the output Markdown,\nand that extraction stays fast and memory-proportional for large PDFs.\nThe quick brown fox jumps over the lazy dog.\nAlpha bravo charlie delta echo foxtrot golf hotel.\n",
+      "scanned": false,
+      "used_ocr": false,
+      "ocr_engine": null,
+      "note": null
+    }
+  ]
+}
