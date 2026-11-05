@@ -12,8 +12,16 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from statistics import median
+from typing import Iterable
 
 from .ocr import OcrLine
+from .ocr_cleanup import (
+    detect_language,
+    normalize_code_text,
+    normalize_shell_lines,
+    repair_c_braces,
+    tidy_blank_lines,
+)
 
 
 _STRONG_CODE_HINTS = (
@@ -37,22 +45,32 @@ _STRONG_CODE_HINTS = (
 
 _WEAK_CODE_HINTS = ("int", "{", "}", ";", "if", "else", "for")
 
-_FULLWIDTH = str.maketrans(
-    {
-        "（": "(",
-        "）": ")",
-        "，": ",",
-        "；": ";",
-        "｛": "{",
-        "｝": "}",
-        "　": " ",
-    }
-)
-
 _NUMBER = re.compile(r"\d{1,3}")
-_FUNCTION_SIGNATURE = re.compile(
-    r"^(?:[A-Za-z_][\w\s\*]+)?[A-Za-z_]\w*\s*\([^;]*\)\s*$"
-)
+_CJK_RE = re.compile(r"[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef\u3000-\u303f]")
+_TERMINAL_PUNCT = "。！？；：，、,.;:"
+
+
+def _is_cjk(char: str) -> bool:
+    return bool(char) and bool(_CJK_RE.match(char))
+
+
+def _join_text(parts: Iterable[str]) -> str:
+    """Join OCR fragments the way the source script would.
+
+    Latin text needs a space where the scan/line wrapped; CJK text does not,
+    because a line break inside a Chinese paragraph is purely typographic.
+    Treating them the same is what produced spaces like ``大伦理 学家`` and
+    ``历 史实际中``.
+    """
+    result = ""
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        if result and not (_is_cjk(result[-1]) or _is_cjk(part[0])):
+            result += " "
+        result += part
+    return result
 
 
 @dataclass
@@ -63,9 +81,34 @@ class _Row:
 
     @property
     def text(self) -> str:
-        return " ".join(
-            line.text.strip() for line in sorted(self.lines, key=lambda item: item.x0)
-        )
+        lines = sorted(self.lines, key=lambda item: item.x0)
+        result = ""
+        previous: OcrLine | None = None
+        for line in lines:
+            text = line.text.strip()
+            if not text:
+                continue
+            if previous is not None:
+                gap = line.x0 - previous.x1
+                height = max(line.y1 - line.y0, previous.y1 - previous.y0)
+                # Large horizontal gaps are deliberate spacing (e.g. a page
+                # number beside a running header); small gaps are just how OCR
+                # boxed up Chinese characters.
+                if gap > max(height * 0.6, 18.0) or not (
+                    _is_cjk(result[-1]) or _is_cjk(text[0])
+                ):
+                    result += " "
+            result += text
+            previous = line
+        return result
+
+    @property
+    def x0(self) -> float:
+        return min(line.x0 for line in self.lines)
+
+    @property
+    def x1(self) -> float:
+        return max(line.x1 for line in self.lines)
 
 
 def _group_rows(lines: list[OcrLine]) -> list[_Row]:
@@ -241,116 +284,6 @@ def _find_code_regions(
     return merged
 
 
-def _clean_ocr_code(text: str) -> str:
-    text = text.translate(_FULLWIDTH)
-    text = text.replace("#includee <", "#include <")
-    text = text.replace("#include e <", "#include <")
-    text = text.replace("argv[l]", "argv[1]")
-    text = text.replace("exit(l));", "exit(1);")
-    text = text.replace("exit(l);", "exit(1);")
-    text = text.replace("while(l)(", "while (1) {")
-    text = text.replace("return ;", "return 0;")
-    text = re.sub(r"\b(if|while|for|switch)\(", r"\1 (", text)
-    text = re.sub(r"\)\{", ") {", text)
-    return text
-
-
-def _detect_language(code: str) -> str:
-    if any(
-        hint in code
-        for hint in ("#include", "main(", "printf(", "char *", "struct ")
-    ):
-        return "c"
-    if any(hint in code for hint in ("def ", "import ", "print(")):
-        return "python"
-    if any(hint in code for hint in ("function ", "const ", "let ", "=>")):
-        return "javascript"
-    if any(hint in code for hint in ("prompt>", "gcc ", "./job", "ls ", "cd ")):
-        return "shell"
-    return ""
-
-
-def _repair_c_braces(lines: list[str]) -> list[str]:
-    """Reinsert braces that OCR missed, using indentation as the signal."""
-    result: list[str] = []
-    stack: list[int] = []
-
-    def indent_of(text: str) -> int:
-        return len(text) - len(text.lstrip(" "))
-
-    def drop_trailing_blanks() -> None:
-        while result and not result[-1].strip():
-            result.pop()
-
-    for index, line in enumerate(lines):
-        stripped = line.strip()
-        if not stripped:
-            result.append(line)
-            continue
-        indent = indent_of(line)
-        if stripped.startswith("}"):
-            if stack and stack[-1] >= indent:
-                stack.pop()
-            result.append(line)
-            continue
-        while stack and indent <= stack[-1]:
-            drop_trailing_blanks()
-            result.append(" " * stack.pop() + "}")
-        result.append(line)
-        if stripped.endswith("{"):
-            stack.append(indent)
-        elif _FUNCTION_SIGNATURE.match(stripped):
-            next_line = next(
-                (item for item in lines[index + 1 :] if item.strip()), ""
-            )
-            if next_line and indent_of(next_line) > indent:
-                result.append(" " * indent + "{")
-                stack.append(indent)
-    while stack:
-        drop_trailing_blanks()
-        result.append(" " * stack.pop() + "}")
-    return result
-
-
-def _tidy_code_blank_lines(lines: list[str]) -> list[str]:
-    cleaned: list[str] = []
-    for index, line in enumerate(lines):
-        if not line.strip():
-            previous = next(
-                (item for item in reversed(cleaned) if item.strip()), ""
-            )
-            following = next(
-                (item for item in lines[index + 1 :] if item.strip()), ""
-            )
-            if previous.rstrip().endswith("{") or following.lstrip().startswith("}"):
-                continue
-        cleaned.append(line)
-    return cleaned
-
-
-def _clean_shell_lines(lines: list[str]) -> list[str]:
-    """Normalise background-job markers that OCR split across lines."""
-    cleaned: list[str] = []
-    last_index: int | None = None
-    for line in lines:
-        text = line.strip()
-        if not text:
-            continue
-        match = re.fullmatch(r"\[(\d+)\]\s*(\d+)", text)
-        if match:
-            last_index = int(match.group(1))
-            cleaned.append(f"[{last_index}] {match.group(2)}")
-            continue
-        if last_index is not None and re.fullmatch(r"\d+", text):
-            last_index += 1
-            cleaned.append(f"[{last_index}] {text}")
-            continue
-        if text.startswith("prompt>"):
-            last_index = None
-        cleaned.append(text)
-    return cleaned
-
-
 def _render_code_rows(
     rows: list[_Row], number_threshold: float | None
 ) -> str:
@@ -402,50 +335,127 @@ def _render_code_rows(
                 text += " "
             text += item.text
             previous_x1 = max(previous_x1, item.x1)
-        code_lines.append(_clean_ocr_code(text.rstrip()))
+        code_lines.append(normalize_code_text(text.rstrip()))
 
     code = "\n".join(code_lines).strip("\n")
-    language = _detect_language(code)
+    language = detect_language(code)
     if language == "c":
-        repaired = _repair_c_braces(code.splitlines())
-        code = "\n".join(_tidy_code_blank_lines(repaired))
+        repaired = repair_c_braces(code.splitlines())
+        code = "\n".join(tidy_blank_lines(repaired))
     elif language == "shell":
-        code = "\n".join(_clean_shell_lines(code.splitlines()))
+        code = "\n".join(normalize_shell_lines(code.splitlines()))
     return f"```{language}\n{code}\n```"
 
 
+def _estimate_left_margin(rows: list[_Row]) -> float | None:
+    """Estimate the body-text left edge from the leftmost rows.
+
+    The 10th percentile is robust against a stray hanging character while still
+    finding the true margin: indented paragraphs and narrower quotations sit to
+    the right of it, so they must not be mistaken for the body margin.
+    """
+    xs = sorted(row.x0 for row in rows if row.text.strip())
+    if not xs:
+        return None
+    return xs[min(len(xs) - 1, int(len(xs) * 0.1))]
+
+
+def _estimate_right_margin(rows: list[_Row]) -> float | None:
+    """Return a robust right edge, ignoring a few short/centered lines."""
+    xs = sorted(row.x1 for row in rows if row.text.strip())
+    if not xs:
+        return None
+    return xs[min(len(xs) - 1, int(len(xs) * 0.9))]
+
+
+def _looks_like_heading(
+    row: _Row,
+    *,
+    base_height: float,
+    body_height: float,
+) -> bool:
+    """A heading is a short, noticeably larger line without sentence punctuation.
+
+    Centered page headers/footers are *not* headings, and neither are ordinary
+    paragraph lines: both used to be promoted to ``##`` because a noisy
+    line-gap heuristic had split them into single-row groups.
+    """
+    text = row.text.strip()
+    if not text or len(text) > 100:
+        return False
+    if text[-1] in _TERMINAL_PUNCT:
+        return False
+    if re.fullmatch(r"[\d\s\-—–]+", text):
+        return False
+    return row.height >= max(base_height * 1.15, body_height * 1.15)
+
+
 def _render_prose_rows(rows: list[_Row]) -> list[str]:
+    rows = [row for row in rows if row.text.strip()]
     if not rows:
         return []
-    heights = [row.height for row in rows if row.text.strip()]
-    if heights:
-        ordered_heights = sorted(heights)
-        base_height = ordered_heights[len(ordered_heights) // 4]
-        body_height = median(ordered_heights)
-    else:
-        base_height = body_height = 30.0
+    heights = [row.height for row in rows]
+    ordered_heights = sorted(heights)
+    base_height = ordered_heights[len(ordered_heights) // 4]
+    body_height = median(ordered_heights)
+
+    left_margin = _estimate_left_margin(rows)
+    right_margin = _estimate_right_margin(rows)
+    indent_threshold = max(body_height * 0.9, 10.0)
+    # Normal line spacing is ~1.5 body heights in Chinese books; paragraph
+    # spacing is larger. The old 1.45 threshold split mid-sentence whenever OCR
+    # jitter pushed one line down by a pixel or two.
+    gap_threshold = body_height * 1.65
 
     groups: list[list[_Row]] = []
     current: list[_Row] = []
-    previous_y: float | None = None
+    previous: _Row | None = None
+
     for row in rows:
-        if not row.text.strip():
-            continue
-        if current and previous_y is not None and row.y - previous_y > body_height * 1.45:
+        new_paragraph = False
+        if current and previous is not None:
+            if row.y - previous.y > gap_threshold:
+                # Extra vertical space: a blank line between paragraphs.
+                new_paragraph = True
+            elif (
+                left_margin is not None
+                and row.x0 - previous.x0 > indent_threshold
+            ):
+                # A local rightward jump in the left edge marks a first-line
+                # indent. The next line normally returns to the margin, which
+                # is a continuation, not a new paragraph; hence only positive
+                # jumps count. Comparing with the previous row rather than the
+                # page margin keeps every line of an indented quotation from
+                # becoming its own paragraph.
+                new_paragraph = True
+            elif (
+                right_margin is not None
+                and previous.x1 < right_margin - max(body_height * 1.5, 24.0)
+                and left_margin is not None
+                and previous.x0 - left_margin <= indent_threshold * 0.4
+                and row.x0 - left_margin <= indent_threshold * 0.4
+            ):
+                # Previous line started at the body margin and ended well short
+                # of the right edge, and this line starts at the margin too:
+                # the previous paragraph ended. A short *indented* first line is
+                # not a paragraph end, so it is excluded by the x0 checks.
+                new_paragraph = True
+
+        if new_paragraph:
             groups.append(current)
             current = []
+
         current.append(row)
-        previous_y = row.y
+        previous = row
+
     if current:
         groups.append(current)
 
     blocks: list[str] = []
     for group in groups:
-        text = " ".join(row.text.strip() for row in group)
-        if (
-            len(group) == 1
-            and group[0].height > base_height * 1.15
-            and len(text) <= 100
+        text = _join_text(row.text for row in group)
+        if len(group) == 1 and _looks_like_heading(
+            group[0], base_height=base_height, body_height=body_height
         ):
             blocks.append(f"## {text}")
         else:

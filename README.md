@@ -11,19 +11,37 @@ JSON）。底层复用 PyMuPDF 与 pymupdf4llm 的按页懒加载能力，因此
 ```text
 backend/
   pdfpages2md/          # 后端核心库与 CLI 入口
+    __init__.py         # 对外导出 convert / extract_pages / render 等
     cli.py              # 命令行入口与参数解析
-    extract.py          # 按页提取、渲染与调度
+    extract.py          # 按页提取管线（OCR / 视觉 / 翻译调度）
+    models.py           # PageResult / ConvertResult 数据结构
+    render.py           # Markdown / 文本 / JSON 渲染
     ranges.py           # 页码范围解析
+    config.py           # 环境变量与 .env 的统一配置解析
     ocr.py              # OCR 后端与扫描页判定
     ocr_layout.py       # 扫描页排版还原（代码围栏）
+    ocr_cleanup.py      # 代码块清洗与语言识别
     code.py             # 文字层代码页还原
     translate.py        # 英译中后端（DeepSeek）
     vision.py           # 视觉模型兜底（可选）
-  server.py             # 本地 HTTP API 与前端静态资源服务
+    web/                # 本地 HTTP 服务
+      app.py            # 参数解析与服务启动
+      handler.py        # 路由、静态资源与 JSON 响应
+      service.py        # 转换编排与临时文件清理
+      multipart.py      # multipart 上传解析
+      config_store.py   # 本机 API Key 持久化
+      paths.py          # frontend / 配置文件路径
+  server.py             # 兼容入口，转发到 pdfpages2md.web
   tests/                # 后端单元测试与样例 PDF 生成器
 frontend/
   index.html            # 单页转换界面
-  app.js                # 前端交互逻辑
+  app.js                # 前端入口，组合下列模块
+  js/
+    tooltip.js          # 共享提示气泡
+    range-input.js      # 页码范围编辑器
+    api-config.js       # API Key 保存与状态
+    file-drop.js        # 文件选择 / 拖放
+    converter.js        # 转换请求、下载与结果状态
   styles.css            # 前端样式
   README.md             # 前端说明
 examples/               # 转换输出示例
@@ -32,11 +50,13 @@ examples/               # 转换输出示例
 
 - `backend/pdfpages2md/` 是当前已经完成的 Python 包，负责页码范围解析、按页
   提取、扫描页 OCR、代码页与扫描页排版还原、英译中、视觉模型兜底、
-  Markdown/JSON 渲染和命令行入口。
-- `backend/server.py` 使用 Python 标准库提供本地 HTTP 服务，不额外依赖
-  Flask/FastAPI。
-- `frontend/` 是转换界面，通过 `/api/convert` 调用后端，不直接访问后端内部
-  实现。
+  Markdown/JSON 渲染和命令行入口。提取、渲染与 Web 服务按职责拆分，
+  新增输出格式只需扩展 `render.py`，新增可选后端只需在 `extract.py` 的
+  管线中加一个阶段。
+- `backend/pdfpages2md/web/` 只使用 Python 标准库提供本地 HTTP 服务，不额外
+  依赖 Flask/FastAPI；`backend/server.py` 保留为兼容启动入口。
+- `frontend/app.js` 通过标准 ES 模块组合 `frontend/js/` 下的功能模块，只通过
+  `/api/*` 调用后端，不直接访问后端内部实现。
 - `.env.example` 提供 DeepSeek 与视觉模型配置模板；复制为 `.env` 后按需填写
   密钥即可，`.env` 已被 `.gitignore` 排除。
 
@@ -46,7 +66,8 @@ examples/               # 转换输出示例
 - 每页保留原始 PDF 页码标记：`<!-- page 100 -->`，方便大模型追溯来源。
 - 只加载所选页，不遍历整份 PDF，适合超大文件。
 - 自动判定扫描页（无有效文本层），并自动对**目标扫描页**做 OCR（可用
-  `--no-ocr` 关闭）。
+  `--no-ocr` 关闭）。扫描页按首行缩进、行距和右边界还原原始段落，避免逐行
+  断段，也避免把段首缩进的正文误判成标题；中文换行不会插入多余空格。
 - 自动识别代码页：文字层 PDF 按等宽字体/坐标还原，扫描版 PDF 按 RapidOCR
   文本框坐标还原；去掉左侧行号、保留缩进，并输出为 Markdown 围栏代码块
   （如 ```c / ```shell），命令输出也会归入同一个代码块；翻译时不会改写代码
@@ -192,6 +213,31 @@ python backend/server.py --host 127.0.0.1 --port 8000
 网页端可以填写 DeepSeek Key 与 GLM Key，输入后会自动保存到本机后端。
 网页端页码范围支持多段输入：每个“部分”填写起始页和终止页，只填起始页表示
 单页；可点击“添加范围”继续追加，最终会自动合并为 `1-10,50,88-95` 形式。
+
+### 一键启动 / 停止（Windows）
+
+后端同时提供前端静态文件，因此部署只需启动一个进程：
+
+```powershell
+# 双击 deploy.cmd，或在 PowerShell 中运行
+powershell -ExecutionPolicy Bypass -File .\deploy.ps1
+
+# 停止
+.\stop.cmd
+```
+
+`deploy.ps1` 会按需安装依赖、在后台启动服务、等待 `/api/health` 通过，并把
+进程号写入 `.server.pid`；运行日志写入 `.logs/`（两者均已加入 `.gitignore`）。
+重复运行是安全的：服务已在运行时只会提示地址，不会重复启动。
+
+默认监听 `127.0.0.1:8000`，仅本机可访问。需要让同一局域网的其他设备访问时：
+
+```powershell
+.\deploy.cmd -ListenHost 0.0.0.0 -Port 8000
+```
+
+注意：该服务没有登录鉴权，并会保存 API Key；只应在可信网络中开放，且不要
+直接暴露到公网。
 
 ## 超大 PDF 下的内存策略
 

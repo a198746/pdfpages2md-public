@@ -1,7 +1,23 @@
 # Frontend
 
-这是 `pdfpages2md` 的单页转换界面，由 `backend/server.py` 直接提供静态文件
-服务。启动方式见根目录 `README.md` 的“本地 Web 界面”部分。
+这是 `pdfpages2md` 的单页转换界面，由本地后端直接提供静态文件服务。启动方式
+见根目录 `README.md` 的“本地 Web 界面”部分。
+
+前端使用原生 ES 模块，不需要构建步骤：
+
+```text
+index.html      页面结构
+app.js          入口：查询 DOM、初始化各模块、做健康检查
+js/tooltip.js   共享提示气泡
+js/range-input.js  页码范围编辑器与预览
+js/api-config.js   DeepSeek / GLM Key 保存与可用状态
+js/file-drop.js    文件选择与拖放
+js/converter.js    转换请求、下载与结果状态
+styles.css      样式
+```
+
+新增交互时优先在 `js/` 下增加独立模块，并在 `app.js` 中组合；不要把请求逻辑
+写进页面结构或样式文件。
 
 前端只通过以下 HTTP 端点与后端交互：
 

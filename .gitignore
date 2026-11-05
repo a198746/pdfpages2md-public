@@ -10,6 +10,9 @@ dist/
 
 # Local logs and caches
 *.log
+.logs/
+.server.pid
+.tmp/
 .pytest_cache/
 .mypy_cache/
 

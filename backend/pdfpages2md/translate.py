@@ -11,12 +11,13 @@ or an explicit API key passed by the web server.
 from __future__ import annotations
 
 import json
-import os
 import re
 import urllib.error
 import urllib.request
-from pathlib import Path
 from typing import Callable
+
+from .config import dotenv_candidates as _dotenv_candidates
+from .config import get_config
 
 
 class TranslationUnavailableError(RuntimeError):
@@ -35,36 +36,13 @@ _FENCE_RE = re.compile(r"^\s*```")
 _FENCED_BLOCK_RE = re.compile(r"(```[^\n]*\n.*?```)", re.DOTALL)
 
 
-def _dotenv_candidates() -> list[Path]:
-    candidates = [Path.cwd() / ".env"]
-    root = Path(__file__).resolve().parents[2]
-    if root.resolve() != Path.cwd().resolve():
-        candidates.append(root / ".env")
-    return candidates
-
-
-def _load_dotenv() -> dict[str, str]:
-    values: dict[str, str] = {}
-    for path in _dotenv_candidates():
-        if not path.is_file():
-            continue
-        for line in path.read_text(encoding="utf-8-sig").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            key = key.strip()
-            if not key:
-                continue
-            values.setdefault(key, value.strip().strip("\"'"))
-    return values
-
-
 def _config(name: str, default: str = "") -> str:
-    value = os.environ.get(name)
-    if value is not None and value.strip():
-        return value.strip()
-    return _load_dotenv().get(name, default)
+    """Read a DeepSeek setting through the shared configuration resolver.
+
+    ``_dotenv_candidates`` stays a module attribute so callers and tests can
+    redirect where ``.env`` is discovered.
+    """
+    return get_config(name, default, candidates=_dotenv_candidates())
 
 
 def _deepseek(text: str, source: str, target: str, api_key: str | None = None) -> str:

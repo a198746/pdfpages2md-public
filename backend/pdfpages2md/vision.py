@@ -17,8 +17,8 @@ from statistics import mean
 
 import pymupdf
 
+from .config import get_config as _config
 from .ocr import OcrLine
-from .translate import _config
 
 
 class VisionUnavailableError(RuntimeError):

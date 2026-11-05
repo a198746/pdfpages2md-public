@@ -15,16 +15,26 @@ markers, targeted OCR for scanned pages, and optional chunking.
 
 from __future__ import annotations
 
-from .extract import ConvertResult, PageResult, convert, extract_pages, page_count
+from .extract import (
+    ConvertResult,
+    ExtractOptions,
+    PageResult,
+    convert,
+    extract_pages,
+    page_count,
+)
 from .ranges import parse_pages
+from .render import render
 
 __all__ = [
     "ConvertResult",
+    "ExtractOptions",
     "PageResult",
     "convert",
     "extract_pages",
     "page_count",
     "parse_pages",
+    "render",
 ]
 
 __version__ = "0.1.0"

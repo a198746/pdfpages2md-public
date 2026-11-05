@@ -102,6 +102,60 @@ class OcrLayoutTests(unittest.TestCase):
         self.assertIn("[4] 7356", fenced)
         self.assertNotIn("Figure 2.2", fenced)
 
+    def test_chinese_first_line_indent_groups_paragraphs(self):
+        lines = [
+            _line("第一段第一行，", 160, 300, x1=1210, height=35),
+            _line("第一段第二行。", 160, 355, x1=1210, height=35),
+            _line("第二段开头，", 235, 410, x1=1210, height=35),
+            _line("第二段继续。", 160, 465, x1=1210, height=35),
+            _line("第三段开头，", 235, 520, x1=800, height=35),
+            _line("第三段结束。", 160, 575, x1=1210, height=35),
+        ]
+        markdown = reconstruct_ocr_markdown(lines)
+        paragraphs = markdown.split("\n\n")
+        self.assertEqual(
+            [
+                "第一段第一行，第一段第二行。",
+                "第二段开头，第二段继续。",
+                "第三段开头，第三段结束。",
+            ],
+            paragraphs,
+        )
+        self.assertNotIn("##", markdown)
+
+    def test_indented_quotation_lines_stay_one_paragraph(self):
+        lines = [
+            _line("正文第一行，", 150, 300, x1=1210, height=35),
+            _line("正文第二行。", 150, 355, x1=1210, height=35),
+            _line("“引文第一行，", 230, 465, x1=1130, height=35),
+            _line("引文第二行，", 230, 520, x1=1130, height=35),
+            _line("引文第三行。”", 230, 575, x1=1130, height=35),
+        ]
+        markdown = reconstruct_ocr_markdown(lines)
+        paragraphs = markdown.split("\n\n")
+        self.assertEqual(2, len(paragraphs))
+        self.assertIn("“引文第一行，引文第二行，引文第三行。”", paragraphs[1])
+
+    def test_cjk_fragments_are_not_joined_with_spaces(self):
+        lines = [
+            _line("大伦理", 160, 300, x1=250, height=35),
+            _line("学家", 252, 300, x1=330, height=35),
+            _line("历史", 160, 355, x1=240, height=35),
+            _line("实际", 240, 355, x1=320, height=35),
+        ]
+        markdown = reconstruct_ocr_markdown(lines)
+        self.assertIn("大伦理学家历史实际", markdown)
+        self.assertNotIn("大伦理 学家", markdown)
+        self.assertNotIn("历史 实际", markdown)
+
+    def test_large_box_gap_keeps_running_header_space(self):
+        lines = [
+            _line("52", 174, 204, x1=209),
+            _line("毛泽东传", 635, 204, x1=750),
+        ]
+        markdown = reconstruct_ocr_markdown(lines)
+        self.assertIn("52 毛泽东传", markdown)
+
 
 if __name__ == "__main__":
     unittest.main()

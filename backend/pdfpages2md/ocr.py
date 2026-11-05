@@ -1,4 +1,9 @@
-"""Scanned-page detection and pluggable OCR backends."""
+"""Scanned-page detection and pluggable OCR backends.
+
+Both backends are optional and imported lazily, so native-text PDFs never pay
+the import or rendering cost. RapidOCR is preferred because it exposes bounding
+boxes; Tesseract is the fallback and yields plain text only.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +33,10 @@ class OcrLine:
     score: float = 1.0
 
 
+# (lines, plain text, engine name)
+LayoutOutcome = tuple[list[OcrLine], str, str]
+LayoutBackend = Callable[[pymupdf.Pixmap, str], LayoutOutcome]
+
 _ocr_thread_state = threading.local()
 
 
@@ -42,7 +51,7 @@ def is_scanned(page: pymupdf.Page, min_chars: int = 50) -> bool:
     return count_text_chars(page) < min_chars
 
 
-def _tesseract(pix: pymupdf.Pixmap, lang: str) -> str:
+def _tesseract_text(pix: pymupdf.Pixmap, lang: str) -> str:
     import pytesseract
     from PIL import Image
 
@@ -51,6 +60,7 @@ def _tesseract(pix: pymupdf.Pixmap, lang: str) -> str:
 
 
 def _rapidocr_engine():
+    """Return a per-thread RapidOCR engine (model loading is expensive)."""
     engine = getattr(_ocr_thread_state, "rapidocr_engine", None)
     if engine is None:
         from rapidocr_onnxruntime import RapidOCR
@@ -68,17 +78,40 @@ def _rapidocr_raw(pix: pymupdf.Pixmap) -> list:
     return result or []
 
 
-def _rapidocr(pix: pymupdf.Pixmap, lang: str) -> str:
-    result = _rapidocr_raw(pix)
-    if not result:
-        return ""
-    return "\n".join(item[1] for item in result if item and item[1])
+def _rapidocr_lines(pix: pymupdf.Pixmap) -> list[OcrLine]:
+    """Convert RapidOCR's ``(box, text, score)`` tuples into ``OcrLine``."""
+    lines: list[OcrLine] = []
+    for box, text, score in _rapidocr_raw(pix):
+        if not text:
+            continue
+        xs = [float(point[0]) for point in box]
+        ys = [float(point[1]) for point in box]
+        lines.append(
+            OcrLine(
+                text=text,
+                x0=min(xs),
+                y0=min(ys),
+                x1=max(xs),
+                y1=max(ys),
+                score=float(score),
+            )
+        )
+    return lines
 
 
-_BACKENDS: list[tuple[str, Callable[[pymupdf.Pixmap, str], str]]] = [
-    ("tesseract", _tesseract),
-    ("rapidocr", _rapidocr),
-]
+def _rapidocr_layout(pix: pymupdf.Pixmap, lang: str) -> LayoutOutcome:
+    lines = _rapidocr_lines(pix)
+    return lines, "\n".join(line.text for line in lines), "rapidocr"
+
+
+def _tesseract_layout(pix: pymupdf.Pixmap, lang: str) -> LayoutOutcome:
+    return [], _tesseract_text(pix, lang=lang), "tesseract"
+
+
+_LAYOUT_BACKENDS: tuple[tuple[str, LayoutBackend], ...] = (
+    ("rapidocr", _rapidocr_layout),
+    ("tesseract", _tesseract_layout),
+)
 
 
 def ocr_page_layout(
@@ -86,49 +119,22 @@ def ocr_page_layout(
     *,
     lang: str = "eng",
     dpi: int = 200,
-) -> tuple[list[OcrLine], str, str]:
+) -> LayoutOutcome:
     """OCR a page and return positioned text regions plus the plain text.
 
-    RapidOCR is preferred because it exposes bounding boxes. If it is not
-    installed we fall back to Tesseract, which yields plain text without layout
-    information (``lines`` is then empty).
+    Backends are tried in priority order. If none can run,
+    :class:`OcrUnavailableError` carries the reason for every attempt.
     """
     pix = page.get_pixmap(dpi=dpi)
     errors: list[str] = []
 
-    try:
-        result = _rapidocr_raw(pix)
-        lines: list[OcrLine] = []
-        for item in result:
-            box, text, score = item
-            if not text:
-                continue
-            xs = [float(point[0]) for point in box]
-            ys = [float(point[1]) for point in box]
-            lines.append(
-                OcrLine(
-                    text=text,
-                    x0=min(xs),
-                    y0=min(ys),
-                    x1=max(xs),
-                    y1=max(ys),
-                    score=float(score),
-                )
-            )
-        text = "\n".join(line.text for line in lines)
-        return lines, text, "rapidocr"
-    except ImportError as exc:
-        errors.append(f"rapidocr: {exc}")
-    except Exception as exc:  # noqa: BLE001 - surface backend failures clearly
-        errors.append(f"rapidocr: {type(exc).__name__}: {exc}")
-
-    try:
-        text = _tesseract(pix, lang=lang)
-        return [], text, "tesseract"
-    except ImportError as exc:
-        errors.append(f"tesseract: {exc}")
-    except Exception as exc:  # noqa: BLE001 - surface backend failures clearly
-        errors.append(f"tesseract: {type(exc).__name__}: {exc}")
+    for name, backend in _LAYOUT_BACKENDS:
+        try:
+            return backend(pix, lang)
+        except ImportError as exc:
+            errors.append(f"{name}: {exc}")
+        except Exception as exc:  # noqa: BLE001 - surface backend failures clearly
+            errors.append(f"{name}: {type(exc).__name__}: {exc}")
 
     detail = "; ".join(errors) or "no OCR backend configured"
     raise OcrUnavailableError(
